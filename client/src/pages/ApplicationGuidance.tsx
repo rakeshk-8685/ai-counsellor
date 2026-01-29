@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { CheckCircle2, FileText, Calendar, AlertCircle, Lock, ListTodo, Circle } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { API_BASE } from '../config';
 import { useNavigate } from 'react-router-dom';
 
 interface Task {
@@ -23,7 +24,7 @@ export default function ApplicationGuidance() {
     const [isLocked, setIsLocked] = useState(false);
 
     const fetchTasks = () => {
-        fetch(`http://localhost:5000/api/tasks?userId=${user?.id}`, {
+        fetch(`${API_BASE}/api/tasks?userId=${user?.id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(res => res.json())
@@ -51,7 +52,7 @@ export default function ApplicationGuidance() {
         setTasks(tasks.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
 
         try {
-            await fetch('http://localhost:5000/api/tasks/update', {
+            await fetch(`${API_BASE}/api/tasks/update`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ taskId, status: newStatus })

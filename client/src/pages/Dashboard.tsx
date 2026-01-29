@@ -18,6 +18,7 @@ interface SmartProfile {
 }
 
 import ProfileUpdateModal from '../components/ProfileUpdateModal';
+import { API_BASE } from '../config';
 
 export default function Dashboard() {
     const { user, token } = useAuth();
@@ -32,7 +33,7 @@ export default function Dashboard() {
         }
 
         try {
-            const res = await fetch(`http://localhost:5000/api/profile/${user.id}`, {
+            const res = await fetch(`${API_BASE}/api/profile/${user.id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) throw new Error("Failed to fetch");

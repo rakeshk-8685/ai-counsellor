@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../../components/ui/Button';
+import { API_BASE } from '../../config';
 import { Input } from '../../components/ui/Input';
 import { Label } from '../../components/ui/Label';
 import { Link, useNavigate } from 'react-router-dom';
@@ -59,7 +60,7 @@ export default function Signup() {
             await updateProfile(user, { displayName: fullName });
 
             // 3. Sync to Backend
-            const res = await fetch('http://localhost:5000/api/auth/firebase-sync', {
+            const res = await fetch(`${API_BASE}/api/auth/firebase-sync`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

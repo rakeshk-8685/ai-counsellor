@@ -38,7 +38,7 @@ export default function Universities() {
     const [unlockReason, setUnlockReason] = useState('');
 
     const fetchShortlist = () => {
-        fetch(`http://localhost:5000/api/universities/shortlist?userId=${user?.id}`, {
+        fetch(`${API_BASE}/api/universities/shortlist?userId=${user?.id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(res => res.json())
@@ -51,7 +51,7 @@ export default function Universities() {
 
     const fetchDiscovery = () => {
         setLoading(true);
-        fetch(`http://localhost:5000/api/universities/discover?userId=${user?.id}&country=${filterCountry}`, {
+        fetch(`${API_BASE}/api/universities/discover?userId=${user?.id}&country=${filterCountry}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
             .then(res => res.json())

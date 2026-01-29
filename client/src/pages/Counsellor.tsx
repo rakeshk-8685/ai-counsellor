@@ -4,6 +4,7 @@ import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
 import { Send, Bot, User as UserIcon, ArrowLeft, CheckCircle } from 'lucide-react';
+import { API_BASE } from '../config';
 import { useNavigate } from 'react-router-dom';
 
 interface Message {
@@ -42,7 +43,7 @@ export default function Counsellor() {
         setLoading(true);
 
         try {
-            const res = await fetch('http://localhost:5000/api/chat', {
+            const res = await fetch(`${API_BASE}/api/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -58,7 +59,7 @@ export default function Counsellor() {
             // Auto-Refresh Context if System Action detected
             if (data.reply.includes('[System:')) {
                 // Fetch fresh progress
-                const pRes = await fetch(`http://localhost:5000/api/progress/${user?.id}`, {
+                const pRes = await fetch(`${API_BASE}/api/progress/${user?.id}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (pRes.ok) {
@@ -90,7 +91,7 @@ export default function Counsellor() {
                     onClick={async () => {
                         if (confirm("Are you satisfied with the counselling session? This will unlock university shortlisting.")) {
                             try {
-                                await fetch('http://localhost:5000/api/progress/complete-counsellor', {
+                                await fetch(`${API_BASE}/api/progress/complete-counsellor`, {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',

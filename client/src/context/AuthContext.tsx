@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { auth } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { API_BASE } from '../config';
 
 interface User {
     id: string; // Firebase UID
@@ -56,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 });
 
                 // Sync User with Postgres & Fetch Progress
-                fetch('http://localhost:5000/api/auth/firebase-sync', {
+                fetch(`${API_BASE}/api/auth/firebase-sync`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

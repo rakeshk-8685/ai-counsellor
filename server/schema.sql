@@ -52,13 +52,17 @@ CREATE TABLE IF NOT EXISTS user_progress (
 -- Universities Table (Rich Data for Discovery)
 CREATE TABLE IF NOT EXISTS universities (
     id SERIAL PRIMARY KEY,
+    external_id VARCHAR(50), -- To map to provided IDs like "uni_006"
     name VARCHAR(255) NOT NULL,
     country VARCHAR(100) NOT NULL,
+    country_code VARCHAR(10),
+    city VARCHAR(100),
     tuition_fee INTEGER, -- USD per year
     living_cost INTEGER, -- USD per year
     acceptance_rate INTEGER, -- Percentage (0-100)
     ranking INTEGER, -- Global/National Rank
     programs JSONB DEFAULT '[]', -- List of supported majors
     features JSONB DEFAULT '[]', -- Tags like "Research", "Urban", etc.
+    website TEXT,
     image_url TEXT
 );

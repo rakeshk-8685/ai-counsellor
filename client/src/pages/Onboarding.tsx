@@ -8,6 +8,7 @@ import ExamsStep from './onboarding-steps/ExamsStep';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../config';
 
 const ProfileWizard = () => {
     // const { previousStep, nextStep, isLastStep, isFirstStep, activeStep } = useWizard();
@@ -62,7 +63,7 @@ const ProfileWizard = () => {
         }
 
         try {
-            const res = await fetch('http://localhost:5000/api/profile/update', {
+            const res = await fetch(`${API_BASE}/api/profile/update`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ const ProfileWizard = () => {
             if (isLastStep) {
                 setIsLoading(true);
                 // Call Progress API to mark complete
-                const res = await fetch('http://localhost:5000/api/progress/complete-onboarding', {
+                const res = await fetch(`${API_BASE}/api/progress/complete-onboarding`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
