@@ -19,7 +19,7 @@ async function resetDB() {
 
         // 2. Apply Schema (Now uses VARCHARs natively)
         console.log("Applying Schema...");
-        const schemaPath = path.join(__dirname, 'schema.sql');
+        const schemaPath = path.join(__dirname, '../schema.sql');
         const schemaSql = fs.readFileSync(schemaPath, 'utf8');
         await client.query(schemaSql);
 

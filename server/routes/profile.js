@@ -79,8 +79,7 @@ router.get('/:userId', verifyToken, async (req, res) => {
 
         res.json({ ...profile, strength, stage, tasks });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to fetch profile' });
+        next(err);
     }
 });
 
@@ -130,12 +129,7 @@ router.post('/update', verifyToken, async (req, res) => {
 
         res.json({ profile: { ...profile, strength, stage, tasks } });
     } catch (err) {
-        console.error("Profile Update Error:", err);
-        res.status(500).json({
-            error: 'Failed to update profile',
-            details: err.message, // Expose for debugging
-            hint: err.detail || err.hint // Postgres hints
-        });
+        next(err); // Pass to Global Error Handler
     }
 });
 

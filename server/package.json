@@ -4,8 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "start": "node index.js",
+    "db:reset": "node scripts/reset-db.js",
+    "db:apply": "node scripts/apply-schema.js",
+    "db:seed": "node scripts/seed_universities.js",
+    "test:ai": "node scripts/test-ai.js",
+    "test:db": "node scripts/test-db.js"
   },
   "keywords": [],
   "author": "",

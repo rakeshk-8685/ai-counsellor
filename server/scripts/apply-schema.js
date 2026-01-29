@@ -11,7 +11,7 @@ const client = new Client({
 async function applySchema() {
     try {
         await client.connect();
-        const schemaPath = path.join(__dirname, 'schema.sql');
+        const schemaPath = path.join(__dirname, '../schema.sql');
         const schemaSql = fs.readFileSync(schemaPath, 'utf8');
 
         console.log("Applying Schema...");
