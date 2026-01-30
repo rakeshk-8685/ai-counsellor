@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS shortlists (
     university_name VARCHAR(255) NOT NULL,
     university_data JSONB DEFAULT '{}',
     status VARCHAR(50) DEFAULT 'shortlisted',
+    locked_at TIMESTAMP,
+    unlock_reason TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
 

@@ -115,16 +115,50 @@ router.post('/unlock', verifyToken, async (req, res) => {
 // POST /api/universities/shortlist (Manual add)
 router.post('/shortlist', verifyToken, async (req, res) => {
     const userId = req.userId;
-    const { name, country, chance } = req.body;
+    const { name, country, chance, image_url, cost, ranking, tuition_fee, acceptance_rate, programs } = req.body;
     try {
+        // Check for duplicate
+        const existing = await db.query(
+            'SELECT id FROM shortlists WHERE user_id = $1 AND university_name = $2',
+            [userId, name]
+        );
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ error: 'University already in shortlist' });
+        }
+
         await db.query(
             'INSERT INTO shortlists (user_id, university_name, university_data) VALUES ($1, $2, $3)',
-            [userId, name, { country, chance }]
+            [userId, name, { country, chance, image_url, cost, ranking, tuition_fee, acceptance_rate, programs }]
         );
         res.json({ success: true });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to shortlist' });
+    }
+});
+
+// DELETE /api/universities/shortlist/:id - Remove from shortlist
+router.delete('/shortlist/:id', verifyToken, async (req, res) => {
+    const userId = req.userId;
+    const { id } = req.params;
+    try {
+        // Ensure the shortlist entry belongs to the user and is not locked
+        const check = await db.query(
+            "SELECT * FROM shortlists WHERE id = $1 AND user_id = $2",
+            [id, userId]
+        );
+        if (check.rows.length === 0) {
+            return res.status(404).json({ error: 'Shortlist item not found' });
+        }
+        if (check.rows[0].status === 'locked') {
+            return res.status(400).json({ error: 'Cannot remove a locked university. Unlock it first.' });
+        }
+
+        await db.query('DELETE FROM shortlists WHERE id = $1 AND user_id = $2', [id, userId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to remove from shortlist' });
     }
 });
 

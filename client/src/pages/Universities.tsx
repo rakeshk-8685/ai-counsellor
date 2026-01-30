@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/Button';
-import { Lock, Unlock, MapPin, CheckCircle, Search, Plus, Filter, Sparkles, GraduationCap } from 'lucide-react';
+import { Lock, Unlock, MapPin, CheckCircle, Search, Plus, Filter, Sparkles, GraduationCap, Trash2, AlertTriangle } from 'lucide-react';
+import { API_BASE } from '../config';
 
 interface University {
     id: string; // For discovery items (number) or shortlist items (uuid)
@@ -20,6 +21,7 @@ interface University {
     costDetails?: { total: string, affordable: boolean, message: string };
     image_url?: string;
     ranking?: number;
+    programs?: any;
 }
 
 export default function Universities() {
@@ -36,16 +38,26 @@ export default function Universities() {
     const [lockModal, setLockModal] = useState<{ open: boolean, id: string, name: string }>({ open: false, id: '', name: '' });
     const [unlockModal, setUnlockModal] = useState<{ open: boolean, id: string, name: string }>({ open: false, id: '', name: '' });
     const [unlockReason, setUnlockReason] = useState('');
+    const [removeModal, setRemoveModal] = useState<{ open: boolean, id: string, name: string }>({ open: false, id: '', name: '' });
+    const [isRemoving, setIsRemoving] = useState(false);
 
     const fetchShortlist = () => {
         fetch(`${API_BASE}/api/universities/shortlist?userId=${user?.id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch shortlist');
+                return res.json();
+            })
             .then(data => {
-                setShortlist(data.shortlists);
-                const locked = data.shortlists.find((u: University) => u.status === 'locked');
+                const list = data.shortlists || [];
+                setShortlist(list);
+                const locked = list.find((u: University) => u.status === 'locked');
                 if (locked) setLockedId(locked.id);
+            })
+            .catch(err => {
+                console.error('Shortlist fetch error:', err);
+                setShortlist([]);
             });
     };
 
@@ -54,12 +66,20 @@ export default function Universities() {
         fetch(`${API_BASE}/api/universities/discover?userId=${user?.id}&country=${filterCountry}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         })
-            .then(res => res.json())
+            .then(res => {
+                if (!res.ok) {
+                    return res.json().then(err => { throw new Error(err.error || 'Failed to load'); });
+                }
+                return res.json();
+            })
             .then(data => {
-                setDiscovery(data.universities);
+                setDiscovery(data.universities || []);
                 setLoading(false);
             })
-            .catch(() => setLoading(false));
+            .catch((err) => {
+                console.error('Discovery fetch error:', err);
+                setLoading(false);
+            });
     };
 
     useEffect(() => {
@@ -70,7 +90,7 @@ export default function Universities() {
 
     const addToShortlist = async (uni: University) => {
         try {
-            await fetch('http://localhost:5000/api/universities/shortlist', {
+            await fetch(`${API_BASE}/api/universities/shortlist`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({
@@ -78,7 +98,13 @@ export default function Universities() {
                     universityId: uni.id,
                     name: uni.name,
                     country: uni.country,
-                    chance: uni.matchLabel
+                    chance: uni.matchLabel,
+                    image_url: uni.image_url,
+                    cost: uni.costDetails?.total,
+                    ranking: uni.ranking,
+                    tuition_fee: uni.tuition_fee,
+                    acceptance_rate: uni.acceptance_rate,
+                    programs: uni.programs
                 })
             });
             fetchShortlist();
@@ -90,6 +116,52 @@ export default function Universities() {
     // Helper to check if already shortlisted
     const isShortlisted = (name: string) => shortlist.some(s => s.university_name === name);
 
+    // Remove from shortlist - Step 1: Show confirmation modal
+    const initRemove = (id: string, name: string) => {
+        setRemoveModal({ open: true, id, name });
+    };
+
+    // Remove from shortlist - Step 2: Confirm and execute
+    const confirmRemove = async () => {
+        console.log('Removing shortlist item:', removeModal.id, removeModal.name);
+        setIsRemoving(true);
+        try {
+            const url = `${API_BASE}/api/universities/shortlist/${removeModal.id}`;
+            console.log('DELETE request to:', url);
+            const res = await fetch(url, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            console.log('Response status:', res.status);
+
+            // Check content type to detect HTML responses (API not reachable)
+            const contentType = res.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+                console.error('Received HTML response - API not reachable. Check VITE_API_URL configuration.');
+                alert('API server not reachable. Please check your API configuration.');
+                setIsRemoving(false);
+                return;
+            }
+
+            if (!res.ok) {
+                const data = await res.json();
+                console.error('Remove error:', data);
+                alert(data.error || 'Failed to remove');
+                setIsRemoving(false);
+                return;
+            }
+            // Success - close modal and refresh
+            console.log('Remove successful');
+            setRemoveModal({ open: false, id: '', name: '' });
+            fetchShortlist();
+        } catch (e) {
+            console.error('Remove exception:', e);
+            alert('An error occurred while removing. Please try again.');
+        } finally {
+            setIsRemoving(false);
+        }
+    };
+
     // --- LOCK FLOW ---
     const initLock = (uniId: string, uniName: string) => {
         setLockModal({ open: true, id: uniId, name: uniName });
@@ -97,7 +169,7 @@ export default function Universities() {
 
     const confirmLock = async () => {
         try {
-            const res = await fetch('http://localhost:5000/api/universities/lock', {
+            const res = await fetch(`${API_BASE}/api/universities/lock`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ userId: user?.id, universityId: lockModal.id })
@@ -122,7 +194,7 @@ export default function Universities() {
     const confirmUnlock = async () => {
         if (!unlockReason.trim()) return alert("Please provide a reason to unlock.");
         try {
-            const res = await fetch('http://localhost:5000/api/universities/unlock', {
+            const res = await fetch(`${API_BASE}/api/universities/unlock`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ userId: user?.id, universityId: unlockModal.id, reason: unlockReason })
@@ -195,6 +267,68 @@ export default function Universities() {
                 </div>
             )}
 
+            {/* Remove Confirmation Modal */}
+            {removeModal.open && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-in zoom-in-95 duration-200">
+                        <div className="p-6 text-center">
+                            {/* Warning Icon */}
+                            <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+                                <Trash2 className="h-8 w-8 text-red-500" />
+                            </div>
+
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">Remove from Shortlist?</h3>
+                            <p className="text-slate-600 mb-6">
+                                <strong className="text-slate-800">"{removeModal.name}"</strong> will be removed from your shortlist.
+                                You can add it back later from the Explore tab.
+                            </p>
+
+                            {/* Info Box */}
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 text-left">
+                                <div className="flex items-start gap-3">
+                                    <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                                    <div className="text-sm text-slate-600">
+                                        <p className="font-medium text-slate-700 mb-1">Note:</p>
+                                        <ul className="list-disc list-inside space-y-1">
+                                            <li>This won't affect locked universities</li>
+                                            <li>Any notes or preferences won't be saved</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => setRemoveModal({ open: false, id: '', name: '' })}
+                                    disabled={isRemoving}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    className="flex-1 bg-red-500 hover:bg-red-600 text-white"
+                                    onClick={confirmRemove}
+                                    disabled={isRemoving}
+                                >
+                                    {isRemoving ? (
+                                        <span className="flex items-center gap-2">
+                                            <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            Removing...
+                                        </span>
+                                    ) : (
+                                        <span className="flex items-center gap-2">
+                                            <Trash2 className="h-4 w-4" />
+                                            Remove
+                                        </span>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
 
             {/* Header Section */}
             <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
@@ -237,10 +371,17 @@ export default function Universities() {
                         >
                             <option value="All">All Countries</option>
                             <option value="USA">🇺🇸 USA</option>
+                            <option value="United States">🇺🇸 United States</option>
                             <option value="UK">🇬🇧 UK</option>
                             <option value="Canada">🇨🇦 Canada</option>
                             <option value="Germany">🇩🇪 Germany</option>
                             <option value="Australia">🇦🇺 Australia</option>
+                            <option value="Ireland">🇮🇪 Ireland</option>
+                            <option value="Singapore">🇸🇬 Singapore</option>
+                            <option value="South Korea">🇰🇷 South Korea</option>
+                            <option value="Netherlands">🇳🇱 Netherlands</option>
+                            <option value="Switzerland">🇨🇭 Switzerland</option>
+                            <option value="New Zealand">🇳🇿 New Zealand</option>
                         </select>
                     </div>
 
@@ -340,68 +481,127 @@ export default function Universities() {
             )}
 
             {activeTab === 'shortlist' && (
-                <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3 animate-in fade-in duration-500">
+                <div className="space-y-6 animate-in fade-in duration-500">
+                    {/* Empty State */}
                     {shortlist.length === 0 && (
-                        <div className="col-span-full text-center py-20 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                            <GraduationCap className="h-12 w-12 text-slate-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-medium text-slate-900">Your shortlist is empty</h3>
-                            <p className="text-slate-500 mb-6">Go to the Explore tab to discover universities.</p>
-                            <Button onClick={() => setActiveTab('explore')} variant="outline">
-                                Start Exploring
+                        <div className="text-center py-20 bg-gradient-to-br from-slate-50 to-indigo-50 rounded-3xl border border-dashed border-indigo-200">
+                            <div className="bg-white w-20 h-20 rounded-2xl shadow-lg flex items-center justify-center mx-auto mb-6">
+                                <GraduationCap className="h-10 w-10 text-indigo-400" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-2">Your shortlist is empty</h3>
+                            <p className="text-slate-500 mb-8 max-w-md mx-auto">Explore universities and add your favorites here to compare and track your applications.</p>
+                            <Button onClick={() => setActiveTab('explore')} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl shadow-lg shadow-indigo-200">
+                                <Search className="mr-2 h-5 w-5" /> Start Exploring
                             </Button>
                         </div>
                     )}
-                    {shortlist.map((uni, idx) => {
-                        const isLocked = lockedId === uni.id || uni.status === 'locked';
-                        const isOtherLocked = lockedId && !isLocked;
-                        const data = uni.university_data || {};
 
-                        return (
-                            <div key={idx} className={`bg-white rounded-2xl border overflow-hidden transition-all duration-300 ${isLocked ? 'ring-2 ring-emerald-500 shadow-xl scale-[1.02]' : 'border-slate-200 hover:shadow-lg hover:-translate-y-1'} ${isOtherLocked ? 'opacity-50 grayscale' : ''}`}>
-                                <div className="h-32 bg-slate-800 relative">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900 opacity-90" />
-                                    {isLocked && (
-                                        <div className="absolute top-4 right-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center shadow-lg">
-                                            <CheckCircle className="h-3 w-3 mr-1" /> LOCKED CHOICE
-                                        </div>
-                                    )}
-                                    <div className="absolute bottom-4 left-6">
-                                        <h3 className="text-white font-bold text-xl">{uni.university_name}</h3>
-                                        <div className="flex items-center text-slate-300 text-sm mt-1">
-                                            <MapPin className="mr-1 h-3 w-3" /> {data.country || 'International'}
+                    {/* Shortlist Cards Grid - Matching Reference Design */}
+                    {shortlist.length > 0 && (
+                        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                            {shortlist.map((uni, idx) => {
+                                const isLocked = lockedId === uni.id || uni.status === 'locked';
+                                const isOtherLocked = lockedId && !isLocked;
+                                const data = uni.university_data || {};
+                                const imageUrl = data.image_url || data.imageUrl || `https://images.unsplash.com/photo-1562774053-701939374585?w=600&q=80`;
+
+                                // Determine match type badge
+                                const matchType = data.chance || 'Target';
+                                const matchBadgeClass = matchType === 'Safe'
+                                    ? 'bg-emerald-500'
+                                    : matchType === 'Dream'
+                                        ? 'bg-purple-500'
+                                        : 'bg-blue-500';
+
+                                return (
+                                    <div
+                                        key={uni.id || idx}
+                                        className={`group relative rounded-2xl overflow-hidden cursor-pointer transition-all duration-500
+                                            ${isLocked
+                                                ? 'ring-3 ring-emerald-400 shadow-2xl'
+                                                : 'hover:shadow-2xl hover:-translate-y-1'
+                                            }
+                                            ${isOtherLocked ? 'opacity-60 grayscale-[40%]' : ''}
+                                        `}
+                                        onClick={() => !isLocked && !lockedId && initLock(uni.id, uni.university_name!)}
+                                    >
+                                        {/* Full Card Image */}
+                                        <div className="aspect-[4/3] relative">
+                                            <img
+                                                src={imageUrl}
+                                                alt={uni.university_name || 'University'}
+                                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1562774053-701939374585?w=600&q=80';
+                                                }}
+                                            />
+
+                                            {/* Dark Gradient Overlay */}
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+
+                                            {/* Match Badge - Top Right */}
+                                            <div className={`absolute top-3 right-3 ${matchBadgeClass} text-white px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide shadow-lg`}>
+                                                {matchType} Match
+                                            </div>
+
+                                            {/* Locked Badge */}
+                                            {isLocked && (
+                                                <div className="absolute top-3 left-3 bg-white text-emerald-600 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-lg">
+                                                    <CheckCircle className="h-3.5 w-3.5" /> LOCKED
+                                                </div>
+                                            )}
+
+                                            {/* University Info - Bottom */}
+                                            <div className="absolute bottom-0 left-0 right-0 p-4">
+                                                <h3 className="text-white font-bold text-lg leading-snug mb-1 drop-shadow-lg">
+                                                    {uni.university_name}
+                                                </h3>
+                                                <div className="flex items-center text-white/90 text-sm gap-1">
+                                                    <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                                                    <span>{data.country || 'International'}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Remove Button - Bottom Right (Only if not locked) */}
+                                            {!isLocked && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); initRemove(uni.id, uni.university_name!); }}
+                                                    className="absolute bottom-3 left-3 z-20 bg-white/95 hover:bg-red-50 text-slate-500 hover:text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 shadow-lg opacity-0 group-hover:opacity-100 flex items-center gap-1.5 border border-slate-200 hover:border-red-200"
+                                                    title="Remove from shortlist"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Remove
+                                                </button>
+                                            )}
+
+                                            {/* Action Overlay on Hover (Only if not locked and no other is locked) */}
+                                            {!isLocked && !lockedId && (
+                                                <div
+                                                    className="absolute inset-0 bg-emerald-600/90 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center pointer-events-none z-10"
+                                                >
+                                                    <div className="text-white text-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                                        <Lock className="h-8 w-8 mx-auto mb-2" />
+                                                        <p className="font-semibold">Click to Lock</p>
+                                                        <p className="text-sm text-white/80">& Start Applying</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Unlock Button for Locked Cards */}
+                                            {isLocked && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); initUnlock(uni.id, uni.university_name!); }}
+                                                    className="absolute bottom-4 right-4 bg-white text-red-500 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-red-50 transition-colors shadow-lg"
+                                                >
+                                                    <Unlock className="h-3.5 w-3.5" /> Unlock
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
-                                <div className="p-6">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <div className="text-center">
-                                            <div className="text-xs text-slate-400 uppercase tracking-wide">Chance</div>
-                                            <div className="font-bold text-slate-800">{data.chance || 'N/A'}</div>
-                                        </div>
-                                        <div className="h-8 w-px bg-slate-100" />
-                                        <div className="text-center">
-                                            <div className="text-xs text-slate-400 uppercase tracking-wide">Avg Cost</div>
-                                            <div className="font-bold text-slate-800">{data.cost || 'Calculate'}</div>
-                                        </div>
-                                    </div>
-
-                                    {isLocked ? (
-                                        <Button variant="outline" className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300" onClick={() => initUnlock(uni.id, uni.university_name!)}>
-                                            <Unlock className="mr-2 h-4 w-4" /> Unlock Application
-                                        </Button>
-                                    ) : (
-                                        <Button
-                                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-200"
-                                            disabled={!!lockedId}
-                                            onClick={() => initLock(uni.id, uni.university_name!)}
-                                        >
-                                            <Lock className="mr-2 h-4 w-4" /> Lock & Start Applying
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        );
-                    })}
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
