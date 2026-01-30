@@ -50,7 +50,6 @@ const Layout = () => {
                         ) : (
                             <Link to="#features" className="transition-colors hover:text-indigo-600">Features</Link>
                         )}
-                        <Link to="/pricing" className="transition-colors hover:text-indigo-600">Pricing</Link>
                     </nav>
 
                     <div className="flex items-center gap-4">

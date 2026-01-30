@@ -15,6 +15,7 @@ interface User {
         application_locked: boolean;
         current_stage: number;
     };
+    role: 'student' | 'university_admin' | 'super_admin';
 }
 
 interface AuthContextType {
@@ -46,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     id: firebaseUser.uid,
                     full_name: firebaseUser.displayName || 'User',
                     email: firebaseUser.email || '',
+                    role: 'student', // Default, will be updated by sync
                     // Default progress, will be updated by Dashboard fetch or manual updateUser
                     progress: {
                         onboarding_completed: false, // Default, will sync later

@@ -38,7 +38,7 @@ export default function ApplicationGuidance() {
                 }
                 setLoading(false);
             })
-            .catch(err => setLoading(false));
+            .catch(_err => setLoading(false));
     };
 
     useEffect(() => {

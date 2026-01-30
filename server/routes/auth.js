@@ -17,8 +17,8 @@ router.post('/signup', async (req, res) => {
 
         // insert user
         const result = await db.query(
-            'INSERT INTO users (full_name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, full_name, email',
-            [fullName, email, hash]
+            'INSERT INTO users (full_name, email, password_hash, role, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, email, role',
+            [fullName, email, hash, 'student', true] // FORCE STUDENT ROLE & ACTIVE
         );
 
         const user = result.rows[0];
@@ -56,13 +56,25 @@ router.post('/firebase-sync', async (req, res) => {
         let user = result.rows[0];
 
         if (!user) {
+            // Conflict Check: Does email exist with different ID? (e.g. Seeded Admin)
+            const existingRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+            if (existingRes.rows.length > 0) {
+                console.log(`Replacing seeded user ${email} with Firebase User`);
+                await db.query('DELETE FROM users WHERE email = $1', [email]);
+            }
+
             // Create new user with Firebase UID
             // Password hash is dummy 'firebase-auth' as we don't auth with it
+            // Auto-Promote Admins (Missing Service Account Workaround)
+            let role = 'student';
+            if (email === 'uni@admin.com') role = 'university_admin';
+            if (email === 'super@admin.com') role = 'super_admin';
+
             const insertRes = await db.query(
-                `INSERT INTO users (id, full_name, email, password_hash) 
-                 VALUES ($1, $2, $3, 'firebase-managed') 
-                 RETURNING id, full_name, email`,
-                [uid, fullName || 'User', email]
+                `INSERT INTO users (id, full_name, email, password_hash, role, is_active) 
+                 VALUES ($1, $2, $3, 'firebase-managed', $4, true) 
+                 RETURNING id, full_name, email, role`,
+                [uid, fullName || 'User', email, role]
             );
             user = insertRes.rows[0];
 
@@ -114,10 +126,25 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Please login via Social/Firebase' });
         }
 
+        if (!user.is_active) {
+            return res.status(403).json({ error: 'Account is disabled. Contact support.' });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!isMatch) {
             return res.status(400).json({ error: 'Invalid credentials' });
+        }
+
+        // Role Validation based on Portal Context
+        const { expectedRole } = req.body;
+        if (expectedRole) {
+            if (expectedRole === 'admin' && !['university_admin', 'super_admin'].includes(user.role)) {
+                return res.status(403).json({ error: 'Access denied: Admin privileges required' });
+            }
+            if (expectedRole === 'student' && user.role !== 'student') {
+                return res.status(403).json({ error: 'Access denied: Please use the Admin Portal' });
+            }
         }
 
         const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1d' });
@@ -145,6 +172,7 @@ router.post('/login', async (req, res) => {
                 id: user.id,
                 full_name: user.full_name,
                 email: user.email,
+                role: user.role,
                 progress
             },
             token
@@ -153,6 +181,61 @@ router.post('/login', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /api/auth/admin/signup - Register Admin Details (After Frontend Firebase Create)
+router.post('/admin/signup', async (req, res) => {
+    const { uid, email, fullName, password, role, secretCode, organizationName } = req.body;
+
+    try {
+        // 1. Role Validation
+        if (!['university_admin', 'super_admin'].includes(role)) {
+            return res.status(400).json({ error: 'Invalid role' });
+        }
+
+        // 2. Secret Code Validation (Hardcoded for Prototype)
+        // In real app, this would check a 'invites' table
+        const SUPER_SECRET = process.env.SUPER_ADMIN_SECRET || 'SUPER_SECRET_KEY_2026';
+
+        if (role === 'super_admin') {
+            if (secretCode !== SUPER_SECRET) {
+                return res.status(403).json({ error: 'Invalid Super Admin Secret Code' });
+            }
+        }
+
+        // 3. Check for existing user (Conflict Resolution)
+        // If they managed to create Firebase Auth but Postgres has legacy data
+        const existingRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (existingRes.rows.length > 0) {
+            // Delete legacy to allow clean insert (or blocked if different flow?)
+            // Assuming clean slate for new admin signup
+            await db.query('DELETE FROM users WHERE email = $1', [email]);
+        }
+
+        // 4. Hash Password (Redundant if using Firebase Auth for login, but good for backup/portability)
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(password, salt);
+
+        // 5. Insert User
+        const result = await db.query(
+            `INSERT INTO users (id, full_name, email, password_hash, role, organization_name, status, is_active) 
+             VALUES ($1, $2, $3, $4, $5, $6, 'active', TRUE) 
+             RETURNING id, full_name, email, role, status`,
+            [uid, fullName, email, hash, role, organizationName || null]
+        );
+
+        // 6. Initialize Progress (Admin doesn't need it but keeps schema clean)
+        await db.query(
+            "INSERT INTO user_progress (user_id, onboarding_completed, current_stage) VALUES ($1, TRUE, 0)",
+            [uid]
+        );
+
+        res.status(201).json({ user: result.rows[0] });
+
+    } catch (err) {
+        console.error("Admin Signup Error:", err);
+        res.status(500).json({ error: 'Registration failed' });
     }
 });
 

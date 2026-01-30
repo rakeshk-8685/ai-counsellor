@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import Onboarding from './pages/Onboarding.tsx';
@@ -6,16 +6,18 @@ import Dashboard from './pages/Dashboard.tsx';
 import Counsellor from './pages/Counsellor.tsx';
 import Universities from './pages/Universities.tsx';
 import ApplicationGuidance from './pages/ApplicationGuidance.tsx';
-import Login from './pages/auth/Login';
-import Signup from './pages/auth/Signup';
+import AnimatedAuthPage from './pages/auth/AnimatedAuthPage';
 import Pricing from './pages/Pricing';
+import UniversityDashboard from './pages/admin/UniversityDashboard';
+import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
+import AdminSignup from './pages/auth/AdminSignup';
 import { useAuth } from './context/AuthContext';
 import { StageGuard } from './components/StageGuard';
 
 // Protected Route Wrapper
-// Enforces authentication and stage progression
 const ProtectedRoute = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -26,6 +28,23 @@ const ProtectedRoute = () => {
   }
 
   if (!isAuthenticated) return <Navigate to="/auth/login" replace />;
+
+  // Admin Redirection: If admin tries to access student routes, redirect to their dashboard
+  if (user?.role === 'university_admin' && !location.pathname.startsWith('/admin')) {
+    return <Navigate to="/admin/university" replace />;
+  }
+  if (user?.role === 'super_admin' && !location.pathname.startsWith('/admin')) {
+    return <Navigate to="/admin/super" replace />;
+  }
+
+  return <Outlet />;
+};
+
+// Admin Guard
+const AdminRoute = ({ role }: { role: 'university_admin' | 'super_admin' }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user || user.role !== role) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 };
 
@@ -33,39 +52,43 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Auth Routes */}
+        <Route path="auth/login" element={<AnimatedAuthPage />} />
+        <Route path="auth/signup" element={<AnimatedAuthPage />} />
+        <Route path="auth/admin/signup" element={<AdminSignup />} />
+
+        {/* Main Layout */}
         <Route path="/" element={<Layout />}>
           <Route index element={<LandingPage />} />
-
-          {/* Auth Routes */}
           <Route path="pricing" element={<Pricing />} />
-          <Route path="auth/login" element={<Login />} />
-          <Route path="auth/signup" element={<Signup />} />
 
-          {/* Protected Routes */}
+          {/* Student Protected Routes */}
           <Route element={<ProtectedRoute />}>
-            {/* Stage 1: Onboarding (Always accessible if authenticated but incomplete) */}
             <Route path="onboarding" element={<Onboarding />} />
-
-            {/* Stage 2 Guard: Dashboard requires Onboarding done */}
             <Route element={<StageGuard requiredStage={2} />}>
               <Route path="dashboard" element={<Dashboard />} />
             </Route>
-
-            {/* Stage 3 Guard: Counsellor requires (Onboarding + logic?) actually just needs Stage 2 access */}
             <Route element={<StageGuard requiredStage={2} />}>
               <Route path="counsellor" element={<Counsellor />} />
             </Route>
-
-            {/* Stage 4 Guard: Universities requires Counsellor completion */}
             <Route element={<StageGuard requiredStage={3} />}>
               <Route path="universities" element={<Universities />} />
             </Route>
-
-            {/* Stage 5 Guard: Guidance requires Locking */}
             <Route element={<StageGuard requiredStage={4} />}>
               <Route path="guidance" element={<ApplicationGuidance />} />
             </Route>
           </Route>
+
+          {/* Admin Routes */}
+          <Route path="admin" element={<ProtectedRoute />}>
+            <Route element={<AdminRoute role="university_admin" />}>
+              <Route path="university" element={<UniversityDashboard />} />
+            </Route>
+            <Route element={<AdminRoute role="super_admin" />}>
+              <Route path="super" element={<SuperAdminDashboard />} />
+            </Route>
+          </Route>
+
         </Route>
       </Routes>
     </BrowserRouter>
@@ -73,3 +96,4 @@ function App() {
 }
 
 export default App;
+

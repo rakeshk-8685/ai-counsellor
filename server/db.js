@@ -47,7 +47,8 @@ async function mockQuery(text, params) {
             id: 'mock-user-id-' + Date.now(),
             full_name: params[0],
             email: params[1],
-            password_hash: params[2]
+            password_hash: params[2],
+            role: params[3] || 'student' // Default role
         };
         mockDB.users.push(newUser);
         return { rows: [newUser] };
@@ -149,5 +150,53 @@ async function mockQuery(text, params) {
         return { rows: mockDB.progress[userId] ? [mockDB.progress[userId]] : [] };
     }
 
+    // MOCK: ADMIN - GET STUDENTS (JOIN query emulation)
+    if (cleanText.includes('select') && cleanText.includes('from users u') && cleanText.includes("role = 'student'")) {
+        const students = mockDB.users.filter(u => u.role === 'student' || !u.role).map(u => {
+            const prog = mockDB.progress[u.id] || { current_stage: 1, onboarding_completed: false };
+            const prof = mockDB.profiles[u.id] || { status: 'incomplete' };
+            return {
+                id: u.id,
+                full_name: u.full_name,
+                email: u.email,
+                role: u.role || 'student',
+                current_stage: prog.current_stage,
+                onboarding_completed: prog.onboarding_completed,
+                profile_status: prof.status
+            };
+        });
+        return { rows: students };
+    }
+
+    // MOCK: ADMIN - STATS
+    if (cleanText.startsWith('select count(*)')) {
+        let count = 0;
+        if (text.includes('FROM users')) {
+            if (text.includes("'student'")) count = mockDB.users.filter(u => u.role === 'student').length;
+            else count = mockDB.users.length;
+        }
+        else if (text.includes('FROM shortlists') && text.includes('locked')) count = 0; // Mock: 0 applications
+        else if (text.includes('FROM profiles') && text.includes('complete')) {
+            count = Object.values(mockDB.profiles).filter(p => p.status === 'complete').length;
+        }
+        return { rows: [{ count }] };
+    }
+
+    // MOCK: ADMIN - DELETE USER
+    if (cleanText.startsWith('delete from')) {
+        const userId = params[0];
+        if (text.includes('users WHERE')) {
+            mockDB.users = mockDB.users.filter(u => u.id !== userId);
+        }
+        if (text.includes('profiles WHERE')) delete mockDB.profiles[userId];
+        if (text.includes('user_progress WHERE')) delete mockDB.progress[userId];
+        // ... tasks/shortlists ignored for simple mock
+        return { rowCount: 1 };
+    }
+
     return { rows: [] };
 }
+
+// Seed Mock Admins
+mockDB.users.push({ id: 'admin-uni', email: 'uni@admin.com', full_name: 'Uni Admin', role: 'university_admin', password_hash: '$2b$10$Z5ercJN7X9qKi1/iesY/zOL4iqtGUO6Jp2LkzKKufoJowCycOf02mu' });
+mockDB.users.push({ id: 'admin-super', email: 'super@admin.com', full_name: 'Super Admin', role: 'super_admin', password_hash: '$2b$10$Z5ercJN7X9qKi1/iesY/zOL4iqtGUO6Jp2LkzKKufoJowCycOf02mu' });
