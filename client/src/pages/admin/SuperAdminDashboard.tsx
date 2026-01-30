@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { Loader2, Users, FileText, CheckCircle, Trash2, ShieldAlert } from 'lucide-react';
+import { Loader2, Users, FileText, CheckCircle, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE } from '../../config';
 
