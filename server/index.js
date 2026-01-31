@@ -4,8 +4,7 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-const FRONTEND_URL = process.env.FRONTEND_URL || '*';
-app.use(cors({ origin: FRONTEND_URL }));
+app.use(cors()); // Allow all origins to prevent CORS issues
 app.use(express.json());
 
 // Request Logger
