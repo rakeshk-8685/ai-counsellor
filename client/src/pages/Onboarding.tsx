@@ -120,9 +120,8 @@ const ProfileWizard = () => {
                 // Update Local Context so StageGuard handles it correctly
                 updateUser({ progress: progressData });
 
-                // Force navigation
-                window.location.href = '/dashboard'; // Hard navigation to ensure state clear
-                // navigate('/dashboard'); 
+                // Soft navigation to preserve state
+                navigate('/dashboard');
             } else {
                 nextStep();
             }
