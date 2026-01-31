@@ -39,8 +39,30 @@ const errorHandler = require('./middleware/errorHandler');
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+const fs = require('fs');
+const path = require('path');
+const db = require('./db');
+
+const initDB = async () => {
+    try {
+        const schemaPath = path.join(__dirname, 'schema.sql');
+        const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+        console.log('🔄 Applying Database Schema...');
+        await db.query(schemaSql);
+        console.log('✅ Database Schema Applied Successfully');
+    } catch (err) {
+        console.error('❌ Failed to Initialize Database:', err);
+        // We might not want to crash if it's just a connection blip, but schema failure is critical.
+        // For Render, we want it to probably fail/restart or just log error.
+        // Let's log heavily.
+    }
+};
+
+// Start Server
+initDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
 });
 
 module.exports = app;
