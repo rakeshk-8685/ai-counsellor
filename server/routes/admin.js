@@ -67,6 +67,12 @@ router.delete('/users/:id', requireRole('super_admin'), async (req, res) => {
         await db.query('DELETE FROM user_tasks WHERE user_id = $1', [id]);
         await db.query('DELETE FROM users WHERE id = $1', [id]);
 
+        // Audit Log
+        await db.query(
+            "INSERT INTO admin_logs (admin_id, action, target_id, details) VALUES ($1, $2, $3, $4)",
+            [req.userId, 'DELETE_USER', id, { reason: 'Super Admin Action' }]
+        );
+
         res.json({ message: 'User deleted successfully' });
     } catch (err) {
         console.error(err);
@@ -100,6 +106,12 @@ router.put('/users/:id/status', requireRole('super_admin'), async (req, res) => 
     try {
         await db.query("UPDATE users SET status = $1, is_active = $2 WHERE id = $3",
             [status, status === 'active', id]
+        );
+
+        // Audit Log
+        await db.query(
+            "INSERT INTO admin_logs (admin_id, action, target_id, details) VALUES ($1, $2, $3, $4)",
+            [req.userId, 'UPDATE_USER_STATUS', id, { status }]
         );
         res.json({ success: true });
     } catch (err) {

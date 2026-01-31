@@ -57,7 +57,7 @@ function generateTasks(profile, stage, strength, lockedUnis) {
 const { verifyToken } = require('../firebaseAdmin');
 
 // GET /api/profile/:userId
-router.get('/:userId', verifyToken, async (req, res) => {
+router.get('/:userId', verifyToken, async (req, res, next) => {
     // Note: userId in params is checked against token
     const { userId } = req.params;
     if (req.userId !== userId) {
@@ -84,7 +84,7 @@ router.get('/:userId', verifyToken, async (req, res) => {
 });
 
 // POST /api/profile/update
-router.post('/update', verifyToken, async (req, res) => {
+router.post('/update', verifyToken, async (req, res, next) => {
     // Use userId from Token
     const userId = req.userId;
     const { section, data } = req.body;

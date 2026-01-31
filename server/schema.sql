@@ -69,3 +69,14 @@ CREATE TABLE IF NOT EXISTS universities (
     website TEXT,
     image_url TEXT
 );
+
+-- Admin Logs Table (Audit Trail)
+CREATE TABLE IF NOT EXISTS admin_logs (
+    id SERIAL PRIMARY KEY,
+    admin_id VARCHAR(255) REFERENCES users(id) ON DELETE SET NULL,
+    action VARCHAR(255) NOT NULL,
+    target_id VARCHAR(255),
+    details JSONB DEFAULT '{}',
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP DEFAULT NOW()
+);
