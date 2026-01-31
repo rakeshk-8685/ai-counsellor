@@ -13,7 +13,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions)); // Enable pre-flight across-the-board
+
 app.use(express.json());
 
 // Request Logger
