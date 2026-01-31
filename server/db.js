@@ -15,8 +15,8 @@ let mockDB = {
     progress: {} // New: progress store
 };
 
-// If valid connection string exists, use Postgres
-if (connectionString) {
+// If valid connection string exists and not forcing mock, use Postgres
+if (connectionString && process.env.FORCE_MOCK !== 'true') {
     pool = new Pool({
         connectionString,
         ssl: isProduction ? { rejectUnauthorized: false } : false,
@@ -76,6 +76,7 @@ async function mockQuery(text, params) {
             study_goals: params[2] || {},
             budget: params[3] || {},
             exams: params[4] || {},
+            custom_tasks: params[5] || [],
             status: 'incomplete',
             updated_at: new Date()
         };
@@ -100,6 +101,7 @@ async function mockQuery(text, params) {
             if (text.includes('study_goals')) mockDB.profiles[pUserId].study_goals = data;
             if (text.includes('budget')) mockDB.profiles[pUserId].budget = data;
             if (text.includes('exams')) mockDB.profiles[pUserId].exams = data;
+            if (text.includes('custom_tasks')) mockDB.profiles[pUserId].custom_tasks = data;
             if (text.includes('status')) mockDB.profiles[pUserId].status = 'complete'; // simplified
 
             mockDB.profiles[pUserId].updated_at = new Date();

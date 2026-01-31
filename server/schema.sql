@@ -5,6 +5,9 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(50) DEFAULT 'student',
+    status VARCHAR(50) DEFAULT 'active',
+    organization_name VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -15,6 +18,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     study_goals JSONB DEFAULT '{}',
     budget JSONB DEFAULT '{}',
     exams JSONB DEFAULT '{}',
+    custom_tasks JSONB DEFAULT '[]',
     status VARCHAR(50) DEFAULT 'incomplete',
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -80,3 +84,9 @@ CREATE TABLE IF NOT EXISTS admin_logs (
     ip_address VARCHAR(45),
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Migrations for existing databases
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_name VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS custom_tasks JSONB DEFAULT '[]';

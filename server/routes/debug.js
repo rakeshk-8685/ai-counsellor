@@ -31,4 +31,82 @@ router.get('/fix-schema', async (req, res) => {
     }
 });
 
+// GET /api/debug/connection - Test Database Connection
+router.get('/connection', async (req, res) => {
+    try {
+        const start = Date.now();
+        const result = await db.query('SELECT NOW()');
+        const duration = Date.now() - start;
+        res.json({
+            status: "Connected",
+            timestamp: result.rows[0].now,
+            duration: `${duration}ms`,
+            database_url_configured: !!process.env.DATABASE_URL,
+            node_env: process.env.NODE_ENV
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: "Error",
+            error: err.message,
+            details: err.code
+        });
+    }
+});
+
+// GET /api/debug/schema - Inspect Users Table Columns
+router.get('/schema', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'users';
+        `);
+        res.json({
+            table: 'users',
+            columns: result.rows
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/debug/connection - Test Database Connection
+router.get('/connection', async (req, res) => {
+    try {
+        const start = Date.now();
+        const result = await db.query('SELECT NOW()');
+        const duration = Date.now() - start;
+        res.json({
+            status: "Connected",
+            timestamp: result.rows[0].now,
+            duration: `${duration}ms`,
+            database_url_configured: !!process.env.DATABASE_URL,
+            node_env: process.env.NODE_ENV
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: "Error",
+            error: err.message,
+            details: err.code
+        });
+    }
+});
+
+// GET /api/debug/schema - Inspect Users Table Columns
+router.get('/schema', async (req, res) => {
+    try {
+        const result = await db.query(`
+            SELECT column_name, data_type 
+            FROM information_schema.columns 
+            WHERE table_name = 'users';
+        `);
+        res.json({
+            table: 'users',
+            columns: result.rows
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

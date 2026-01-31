@@ -95,20 +95,21 @@ router.post('/update', verifyToken, async (req, res, next) => {
         let params = [];
 
         if (check.rows.length === 0) {
-            query = `INSERT INTO profiles (user_id, academic_data, study_goals, budget, exams, status) 
-                     VALUES ($1, $2, $3, $4, $5, 'incomplete') RETURNING *`;
+            query = `INSERT INTO profiles (user_id, academic_data, study_goals, budget, exams, custom_tasks, status) 
+                     VALUES ($1, $2, $3, $4, $5, $6, 'incomplete') RETURNING *`;
             // ... (Creation Logic remains same)
             const empty = {};
             const val = section === 'academic' ? data : empty;
             const val2 = section === 'goals' ? data : empty;
             const val3 = section === 'budget' ? data : empty;
             const val4 = section === 'exams' ? data : empty;
+            const val5 = section === 'custom_tasks' ? data : []; // Default to empty array, not object
             // Explicitly stringify if db adapter doesn't handle JSON automatically (pg supports it, but safer)
             // Actually, pg handles objects for JSONB.
-            params = [userId, val, val2, val3, val4];
+            params = [userId, val, val2, val3, val4, val5];
         } else {
             // ... (Update Logic remains same)
-            const map = { 'academic': 'academic_data', 'goals': 'study_goals', 'budget': 'budget', 'exams': 'exams' };
+            const map = { 'academic': 'academic_data', 'goals': 'study_goals', 'budget': 'budget', 'exams': 'exams', 'custom_tasks': 'custom_tasks' };
             const col = map[section];
             if (!col) return res.status(400).json({ error: 'Invalid section' });
             query = `UPDATE profiles SET ${col} = $2, updated_at = NOW() WHERE user_id = $1 RETURNING *`;
