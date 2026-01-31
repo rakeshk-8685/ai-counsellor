@@ -37,61 +37,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                const idToken = await firebaseUser.getIdToken();
-                setToken(idToken);
+                try {
+                    const idToken = await firebaseUser.getIdToken();
+                    setToken(idToken);
 
-                // We need to fetch the "App User" data (progress, profile) from our postgres DB
-                // For now, we'll construct a basic user object from Firebase
-                // In a real app, we'd fetch /api/me to get the strict SQL data
-                setUser({
-                    id: firebaseUser.uid,
-                    full_name: firebaseUser.displayName || 'User',
-                    email: firebaseUser.email || '',
-                    role: 'student', // Default, will be updated by sync
-                    // Default progress, will be updated by Dashboard fetch or manual updateUser
-                    progress: {
-                        onboarding_completed: false, // Default, will sync later
-                        counsellor_completed: false,
-                        shortlisting_completed: false,
-                        application_locked: false,
-                        current_stage: 1
-                    }
-                });
-
-                // Sync User with Postgres & Fetch Progress
-                fetch(`${API_BASE}/api/auth/firebase-sync`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}`
-                    },
-                    body: JSON.stringify({
-                        uid: firebaseUser.uid,
-                        email: firebaseUser.email,
-                        fullName: firebaseUser.displayName || 'User'
-                    })
-                })
-                    .then(res => {
-                        if (!res.ok) throw new Error("Sync Failed");
-                        return res.json();
-                    })
-                    .then(data => {
-                        // data should contain { user: { ..., progress: ... } }
-                        setUser(data.user);
-                    })
-                    .catch(e => {
-                        console.error("CRITICAL: Failed to sync user/progress", e);
-                        // Prevent Ghost Sessions: If sync fails, user must not proceed
-                        setUser(null);
-                        setToken(null);
-                        alert("Account synchronization failed. Please check your connection or try again.");
+                    // Sync User with Postgres & Fetch Progress
+                    // We AWAIT this fetch so loading stays true until we have the DB user
+                    const res = await fetch(`${API_BASE}/api/auth/firebase-sync`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${idToken}`
+                        },
+                        body: JSON.stringify({
+                            uid: firebaseUser.uid,
+                            email: firebaseUser.email,
+                            fullName: firebaseUser.displayName || 'User'
+                        })
                     });
+
+                    if (!res.ok) throw new Error("Sync Failed");
+                    const data = await res.json();
+
+                    setUser(data.user);
+                } catch (e) {
+                    console.error("CRITICAL: Failed to sync user/progress", e);
+                    // Prevent Ghost Sessions: If sync fails, user must not proceed
+                    setUser(null);
+                    setToken(null);
+                    alert("Account synchronization failed. Please check your connection or try again.");
+                } finally {
+                    setLoading(false); // Only stop loading after fetch is done
+                }
 
             } else {
                 setUser(null);
                 setToken(null);
+                setLoading(false);
             }
-            setLoading(false);
         });
 
         return () => unsubscribe();
