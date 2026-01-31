@@ -56,33 +56,44 @@ router.post('/firebase-sync', async (req, res) => {
         let user = result.rows[0];
 
         if (!user) {
-            // Conflict Check: Does email exist with different ID? (e.g. Seeded Admin)
-            const existingRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-            if (existingRes.rows.length > 0) {
-                console.log(`Replacing seeded user ${email} with Firebase User`);
-                await db.query('DELETE FROM users WHERE email = $1', [email]);
+            try {
+                // Conflict Check: Does email exist with different ID? (e.g. Seeded Admin)
+                const existingRes = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+                if (existingRes.rows.length > 0) {
+                    console.log(`Replacing seeded user ${email} with Firebase User`);
+                    await db.query('DELETE FROM users WHERE email = $1', [email]);
+                }
+
+                // Create new user with Firebase UID
+                // Auto-Promote Admins
+                let role = 'student';
+                if (email === 'uni@admin.com') role = 'university_admin';
+                if (email === 'super@admin.com') role = 'super_admin';
+
+                const insertRes = await db.query(
+                    `INSERT INTO users (id, full_name, email, password_hash, role, is_active) 
+                     VALUES ($1, $2, $3, 'firebase-managed', $4, true) 
+                     RETURNING id, full_name, email, role`,
+                    [uid, fullName || 'User', email, role]
+                );
+                user = insertRes.rows[0];
+
+                // Initialize Progress
+                await db.query(
+                    "INSERT INTO user_progress (user_id, onboarding_completed, current_stage) VALUES ($1, FALSE, 1) ON CONFLICT (user_id) DO NOTHING",
+                    [user.id]
+                );
+            } catch (err) {
+                if (err.code === '23505') { // Unique Violation (Race Condition)
+                    console.log("⚠️ Race Condition detected in Sync. Recovering...");
+                    // Fetch the user that beat us to the insert
+                    const retryRes = await db.query('SELECT * FROM users WHERE id = $1', [uid]);
+                    user = retryRes.rows[0];
+                    if (!user) throw err; // If still missing, real error
+                } else {
+                    throw err; // Other errors mismatch
+                }
             }
-
-            // Create new user with Firebase UID
-            // Password hash is dummy 'firebase-auth' as we don't auth with it
-            // Auto-Promote Admins (Missing Service Account Workaround)
-            let role = 'student';
-            if (email === 'uni@admin.com') role = 'university_admin';
-            if (email === 'super@admin.com') role = 'super_admin';
-
-            const insertRes = await db.query(
-                `INSERT INTO users (id, full_name, email, password_hash, role, is_active) 
-                 VALUES ($1, $2, $3, 'firebase-managed', $4, true) 
-                 RETURNING id, full_name, email, role`,
-                [uid, fullName || 'User', email, role]
-            );
-            user = insertRes.rows[0];
-
-            // Initialize Progress
-            await db.query(
-                "INSERT INTO user_progress (user_id, onboarding_completed, current_stage) VALUES ($1, FALSE, 1)",
-                [user.id]
-            );
         }
 
         // Fetch User Progress
@@ -91,9 +102,12 @@ router.post('/firebase-sync', async (req, res) => {
 
         // Ensure progress exists (for legacy/edge cases)
         if (!progress) {
+            // Upsert Progress safe
             const newProgress = await db.query(
                 `INSERT INTO user_progress (user_id, onboarding_completed, current_stage) 
-                 VALUES ($1, FALSE, 1) RETURNING *`,
+                 VALUES ($1, FALSE, 1) 
+                 ON CONFLICT (user_id) DO UPDATE SET updated_at = NOW()
+                 RETURNING *`,
                 [user.id]
             );
             progress = newProgress.rows[0];
@@ -104,7 +118,7 @@ router.post('/firebase-sync', async (req, res) => {
         });
 
     } catch (err) {
-        console.error(err);
+        console.error("Sync Error:", err);
         res.status(500).json({ error: 'Sync failed' });
     }
 });
