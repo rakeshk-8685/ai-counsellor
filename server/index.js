@@ -4,7 +4,16 @@ const axios = require('axios');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors()); // Allow all origins to prevent CORS issues
+const corsOptions = {
+    origin: '*', // Allow all origins for prototype. In production, strict this to specific domains.
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization, Content-Length, X-Requested-With',
+    credentials: true,
+    optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // Enable pre-flight across-the-board
 app.use(express.json());
 
 // Request Logger

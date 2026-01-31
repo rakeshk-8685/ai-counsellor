@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://ai-counsellor-3ei0.onrender.com/api';
 
 async function testFlow() {
     try {
