@@ -31,7 +31,6 @@ app.use('/api/progress', progressRoutes);
 const taskRoutes = require('./routes/tasks');
 app.use('/api/tasks', taskRoutes);
 const adminRoutes = require('./routes/admin');
-const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 const debugRoutes = require('./routes/debug');
 app.use('/api/debug', debugRoutes);
