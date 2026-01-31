@@ -129,6 +129,10 @@ router.post('/update', verifyToken, async (req, res, next) => {
 
         res.json({ profile: { ...profile, strength, stage, tasks } });
     } catch (err) {
+        if (err.code === '23503') { // Foreign Key Violation
+            console.error("Profile Update Failed: User ID not found in Users table.");
+            return res.status(401).json({ error: "User Account Gap Detected. Please Logout and Login again to resync." });
+        }
         next(err); // Pass to Global Error Handler
     }
 });

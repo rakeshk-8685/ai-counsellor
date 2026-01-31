@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${idToken}` // Use token for consistent auth if we wanted, but sync endpoint uses body
+                        'Authorization': `Bearer ${idToken}`
                     },
                     body: JSON.stringify({
                         uid: firebaseUser.uid,
@@ -79,7 +79,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                         // data should contain { user: { ..., progress: ... } }
                         setUser(data.user);
                     })
-                    .catch(e => console.error("Failed to sync user/progress", e));
+                    .catch(e => {
+                        console.error("CRITICAL: Failed to sync user/progress", e);
+                        // Prevent Ghost Sessions: If sync fails, user must not proceed
+                        setUser(null);
+                        setToken(null);
+                        alert("Account synchronization failed. Please check your connection or try again.");
+                    });
 
             } else {
                 setUser(null);
